@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b18">
+<title>Echo Aurora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --night:#060a1a; --night2:#0b1330; --card:rgba(18,28,62,.58); --card2:rgba(30,44,92,.55); --line:rgba(150,175,255,.14); --grid:#1c2850; --axis:#34447a;
+  --ink:#f1f5ff; --ink2:#bcc7e6; --muted:#8190b8;
+  --aurora:#4fd18b; --teal:#2fbfae; --violet:#9085e9; --pink:#e87ba4;
+  --clear:#2fbf8f; --mid:#9a9aa6; --blur:#d55181;          /* C50 diverging: blurred <- 0 dB -> clear */
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --glow:linear-gradient(100deg,var(--aurora),var(--teal) 45%,var(--violet) 80%,var(--pink));
+  --display:"Bricolage Grotesque",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--night);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+body{padding-bottom:calc(96px + env(safe-area-inset-bottom));min-height:100vh;position:relative;overflow-x:hidden}
+/* the sky behind everything: stars + slowly drifting aurora haze */
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+  radial-gradient(1px 1px at 12% 18%,#fff9,transparent),radial-gradient(1px 1px at 72% 9%,#fffa,transparent),
+  radial-gradient(1.5px 1.5px at 38% 42%,#fff8,transparent),radial-gradient(1px 1px at 88% 36%,#fff7,transparent),
+  radial-gradient(1px 1px at 22% 72%,#fff6,transparent),radial-gradient(1.5px 1.5px at 60% 82%,#fff7,transparent),
+  radial-gradient(1px 1px at 93% 76%,#fff6,transparent),radial-gradient(1px 1px at 6% 52%,#fff6,transparent),
+  linear-gradient(180deg,#0a1434,var(--night) 55%)}
+body::after{content:"";position:fixed;inset:-20% -30% auto;height:70vh;z-index:-1;pointer-events:none;filter:blur(60px);opacity:.55;
+  background:radial-gradient(40% 50% at 30% 40%,rgba(79,209,139,.35),transparent 70%),radial-gradient(35% 45% at 70% 30%,rgba(144,133,233,.35),transparent 70%),radial-gradient(30% 40% at 50% 60%,rgba(232,123,164,.18),transparent 70%);
+  animation:drift 28s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(8%,4%,0) rotate(6deg)}}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 18px 8px;max-width:600px;margin:0 auto}
+.brand{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
+.brand::before{content:"";width:22px;height:22px;border-radius:50%;background:conic-gradient(from 180deg,var(--aurora),var(--teal),var(--violet),var(--pink),var(--aurora));box-shadow:0 0 18px rgba(79,209,139,.5);-webkit-mask:radial-gradient(circle,transparent 5px,#000 6px);mask:radial-gradient(circle,transparent 5px,#000 6px)}
+.brand span,.grad{background:var(--glow);-webkit-background-clip:text;background-clip:text;color:transparent}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font-size:11.5px;padding:4px 10px;border-radius:99px;background:var(--card);border:1px solid var(--line);color:var(--ink2);white-space:nowrap;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.chip i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--muted);vertical-align:1px}
+.chip.ok i{background:var(--aurora);box-shadow:0 0 8px var(--aurora)} .chip.wait i{background:var(--warn);box-shadow:0 0 8px var(--warn)} .chip.bad i{background:var(--crit);box-shadow:0 0 8px var(--crit)}
+main{max-width:600px;margin:0 auto;padding:0 16px}
+.tab{display:none} .tab.on{display:block;animation:tabin .35s ease-out}
+@keyframes tabin{from{opacity:0;transform:translateY(6px)}}
+h2{font-family:var(--display);font-weight:700;font-size:19px;margin:0 0 3px;letter-spacing:-.3px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 12px}
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;margin:0 0 14px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+canvas{display:block;width:100%;touch-action:pan-y}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--card2);border-radius:99px;padding:8px 16px;font-size:14px;transition:background .2s}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible,nav button:focus-visible,.listen:focus-visible{outline:2px solid var(--aurora);outline-offset:3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* hero: the live aurora over a night horizon */
+.sky{position:relative;border-radius:30px;overflow:hidden;margin:4px 0 12px;background:
+  radial-gradient(1px 1px at 15% 20%,#fffc,transparent),radial-gradient(1px 1px at 45% 12%,#fff9,transparent),radial-gradient(1.5px 1.5px at 78% 25%,#fffb,transparent),
+  radial-gradient(1px 1px at 62% 45%,#fff8,transparent),radial-gradient(1px 1px at 30% 55%,#fff7,transparent),radial-gradient(1px 1px at 90% 58%,#fff8,transparent),
+  linear-gradient(180deg,#040817,#0b1738 70%,#122452);box-shadow:0 20px 60px -20px rgba(47,191,174,.35),inset 0 0 0 1px var(--line)}
+.sky canvas{height:50vh;max-height:420px;min-height:280px;mix-blend-mode:screen;filter:blur(1.2px) saturate(1.35) brightness(1.1)}
+.sky .ridge{position:absolute;left:0;right:0;bottom:0;width:100%;height:34%;pointer-events:none}
+.sky .ax{position:absolute;left:12px;font-size:10px;color:rgba(188,199,230,.6);pointer-events:none}
+.sky.flash::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(80% 70% at 50% 100%,rgba(79,209,139,.55),rgba(144,133,233,.25) 50%,transparent 75%);animation:flash 1.4s ease-out forwards}
+@keyframes flash{from{opacity:1}to{opacity:0}}
+.overlay{position:absolute;inset:auto 0 0 0;padding:16px 16px 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.overlay .msg{font-size:14px;color:var(--ink2);max-width:60%;text-shadow:0 1px 8px #000a}
+.overlay .msg b{display:block;font-family:var(--display);font-size:24px;color:var(--ink);font-weight:800;line-height:1.1;margin-bottom:3px;letter-spacing:-.4px}
+.orb{position:relative;flex:none;width:100px;height:100px}
+.orb i{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(250,178,25,.6);opacity:0;pointer-events:none}
+.orb.armed i{animation:ripple 2.4s ease-out infinite} .orb.armed i:nth-child(2){animation-delay:.8s} .orb.armed i:nth-child(3){animation-delay:1.6s}
+@keyframes ripple{from{transform:scale(1);opacity:.8}to{transform:scale(2.3);opacity:0}}
+.listen{position:relative;width:100%;height:100%;border-radius:50%;border:0;background:radial-gradient(circle at 32% 28%,#d6ffe6,var(--aurora) 42%,#14806a 85%);color:#04261a;font-family:var(--display);font-weight:800;font-size:17px;box-shadow:0 0 0 7px rgba(79,209,139,.16),0 0 50px rgba(79,209,139,.55);transition:transform .15s}
+.listen:active{transform:scale(.94)}
+.listen.armed{background:radial-gradient(circle at 32% 28%,#fff1c9,var(--warn) 45%,#b06c00);color:#2a1a00;box-shadow:0 0 0 7px rgba(250,178,25,.16),0 0 50px rgba(250,178,25,.5)}
+.listen:disabled{opacity:.5}
+#diagLine{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 12px;backdrop-filter:blur(10px)}
+
+.steps{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;counter-reset:s}
+.steps li{counter-increment:s;position:relative;padding:2px 0 2px 34px;min-height:24px;color:var(--ink2);font-size:14px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:13px;color:#04261a;background:var(--glow)}
+.seatline{font-size:14px;color:var(--ink2);margin-top:8px}
+.seatline b{color:var(--ink)}
+
+/* result */
+.result{display:none}
+.verdict{display:inline-flex;align-items:center;gap:6px;margin:2px 0 10px;padding:5px 12px 5px 8px;border-radius:99px;font-family:var(--display);font-weight:700;font-size:14px;background:var(--card2);border:1px solid var(--line)}
+.verdict i{width:10px;height:10px;border-radius:50%}
+.hero2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 12px}
+.stat{position:relative;overflow:hidden;background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:12px 14px}
+.stat::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(79,209,139,.25),transparent 70%)}
+.stat+.stat::after{background:radial-gradient(circle,rgba(144,133,233,.3),transparent 70%)}
+.stat span{display:block;font-size:12px;color:var(--muted)}
+.stat b{display:block;font-family:var(--display);font-size:42px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-1.2px}
+.stat b small{font-size:16px;font-weight:600;color:var(--ink2);margin-left:3px;letter-spacing:0}
+.stat em{display:block;font-style:normal;font-size:12.5px;color:var(--ink2);margin-top:2px}
+.checks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:12.5px;color:var(--ink2)}
+.checks li{display:flex;gap:7px;align-items:flex-start}
+.ic{flex:none;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#0a0a0a;margin-top:1px}
+.ic.ok{background:var(--aurora)} .ic.warn{background:var(--warn)} .ic.bad{background:var(--crit);color:#fff}
+.bands{display:flex;gap:6px;margin:4px 0 10px;padding:4px;border-radius:99px;background:rgba(6,10,26,.5);border:1px solid var(--line)}
+.bands button{flex:1;border:0;background:transparent;border-radius:99px;padding:6px 0;font-size:12px;color:var(--ink2);transition:background .2s,color .2s}
+.bands button.on{background:var(--glow);color:#04261a;font-weight:700}
+.readout{font-size:12px;color:var(--ink2);min-height:17px;margin-top:6px;font-variant-numeric:tabular-nums}
+.legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);margin-top:10px}
+.legend .ramp{flex:1;height:10px;border-radius:99px;background:linear-gradient(90deg,var(--blur),var(--mid),var(--clear));box-shadow:0 0 14px rgba(47,191,143,.25)}
+
+/* tables & forms */
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th{text-align:left;color:var(--muted);font-weight:500;padding:4px;border-bottom:1px solid var(--line)}
+td{padding:7px 4px;border-bottom:1px solid rgba(150,175,255,.08)}
+td.num,th.num{text-align:right;white-space:nowrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:6px}
+.dims{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+label.f{display:block;font-size:12px;color:var(--muted)}
+label.f input,label.f select{display:block;width:100%;margin-top:4px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(6,10,26,.55);color:var(--ink);font:inherit;font-size:16px}
+label.f input:focus{outline:2px solid var(--teal);outline-offset:1px}
+.mats{display:grid;gap:10px}
+.mat{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:12px 14px}
+.mat .mi{grid-row:span 2;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(6,10,26,.5)}
+.mat b{font-family:var(--display);font-size:26px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.mat span{font-size:15px;font-weight:600}
+.mat small{grid-column:2/-1;color:var(--muted);font-size:12px}
+.prose{font-size:14px;color:var(--ink2)}
+.prose p{margin:6px 0}
+.prose b{color:var(--ink)}
+.err{color:#ff9b9b;font-size:13px;margin-top:10px}
+
+nav{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;display:flex;gap:4px;padding:6px;border-radius:26px;background:rgba(10,16,40,.72);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--line);box-shadow:0 12px 40px -10px #000c;z-index:9}
+nav button{flex:1;border:0;background:none;color:var(--muted);padding:7px 0 6px;font-size:11.5px;border-radius:20px;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color .2s,background .2s}
+nav button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--ink);background:linear-gradient(180deg,rgba(79,209,139,.18),rgba(144,133,233,.18))}
+nav button.on svg{stroke:var(--aurora);filter:drop-shadow(0 0 6px rgba(79,209,139,.7))}
+
+#startOverlay{position:fixed;inset:0;z-index:20;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:24px 24px calc(36px + env(safe-area-inset-bottom));background:var(--night)}
+#startOverlay::before{content:"";position:absolute;inset:-10% -40% 35%;filter:blur(40px);background:
+  radial-gradient(30% 60% at 30% 40%,rgba(79,209,139,.65),transparent 70%),radial-gradient(25% 55% at 55% 30%,rgba(47,191,174,.5),transparent 70%),
+  radial-gradient(30% 60% at 75% 45%,rgba(144,133,233,.55),transparent 70%),radial-gradient(20% 40% at 50% 60%,rgba(232,123,164,.3),transparent 70%);
+  animation:drift 14s ease-in-out infinite alternate}
+#startOverlay::after{content:"";position:absolute;inset:0;background:
+  radial-gradient(1px 1px at 20% 12%,#fff,transparent),radial-gradient(1px 1px at 80% 20%,#fffc,transparent),radial-gradient(1.5px 1.5px at 50% 8%,#fff,transparent),
+  radial-gradient(1px 1px at 10% 40%,#fffa,transparent),radial-gradient(1px 1px at 90% 48%,#fffa,transparent),linear-gradient(180deg,transparent 30%,var(--night) 62%)}
+#startOverlay .inner{position:relative;z-index:1;max-width:460px;margin:0 auto;width:100%}
+#startOverlay h1{font-family:var(--display);font-weight:800;font-size:56px;line-height:.95;margin:0 0 14px;letter-spacing:-2px}
+#startOverlay p{color:var(--ink2);margin:0 0 12px}
+#startBtn{margin-top:14px;width:100%;padding:16px;border-radius:99px;border:0;font-family:var(--display);font-weight:800;font-size:19px;background:var(--glow);color:#04261a;box-shadow:0 10px 40px -8px rgba(79,209,139,.7)}
+#startBtn:active{transform:scale(.98)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="startOverlay"><div class="inner">
+  <h1>Echo<br><span class="grad">Aurora</span></h1>
+  <p>Find out whether people in every seat of a room can understand someone speaking at the front, and how much curtain or panel would fix it.</p>
+  <p>You'll clap once at the front of the room while the phone listens from a seat. It uses the microphone, the accelerometer and the gyroscope. Nothing is recorded or uploaded.</p>
+  <button id="startBtn">Start</button>
+  <div class="err" id="err"></div>
+</div></div>
+
+<header>
+  <div class="brand">Echo <span>Aurora</span></div>
+  <div class="chips"><span class="chip" id="chipMic"><i></i>Mic</span><span class="chip" id="chipStill"><i></i>Motion</span></div>
+</header>
+
+<main>
+<!-- ============ MEASURE ============ -->
+<section class="tab on" id="tab-measure">
+  <div class="sky" id="sky">
+    <canvas id="skyCv"></canvas>
+    <svg class="ridge" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 62 L38 40 L62 52 L96 22 L128 48 L160 34 L196 58 L232 30 L262 46 L300 18 L332 44 L366 32 L400 50 L400 100 L0 100Z" fill="#070c22"/><path d="M0 78 L50 60 L90 72 L140 54 L190 74 L240 58 L290 76 L340 60 L400 70 L400 100 L0 100Z" fill="#050817"/></svg>
+    <span class="ax" style="top:8px">8 kHz</span><span class="ax" style="top:40%">1 kHz</span>
+    <div class="overlay">
+      <div class="msg" id="msg"><b>Ready</b>Put the phone down at a seat, then tap Listen.</div>
+      <div class="orb" id="orb"><i></i><i></i><i></i><button class="listen" id="listenBtn">Listen</button></div>
+    </div>
+  </div>
+
+  <p class="sub" id="diagLine" style="display:none;margin:-4px 2px 12px;font-variant-numeric:tabular-nums"></p>
+  <div class="card">
+    <h2>Where is the phone?</h2>
+    <p class="sub">Tap the room plan where the phone is sitting. The talker stands at the front.</p>
+    <canvas id="miniMap" height="190"></canvas>
+    <div class="seatline" id="seatLine">No seat chosen yet.</div>
+    <ol class="steps" style="margin-top:8px">
+      <li>Put the phone flat on a desk or chair at that seat.</li>
+      <li>Tap <b>Listen</b>, then walk to the front.</li>
+      <li>Clap once, sharply, and stay quiet for 3 seconds.</li>
+    </ol>
+  </div>
+
+  <div class="result" id="result">
+    <div class="card">
+      <h2 id="resTitle">Seat A</h2>
+      <p class="sub" id="resSub" style="margin-bottom:6px"></p>
+      <div class="verdict" id="verdict"></div>
+      <div class="hero2">
+        <div class="stat"><span>Reverberation, RT60</span><b id="rRt">--</b><em id="rRtNote"></em></div>
+        <div class="stat"><span>Speech clarity, C50</span><b id="rC50">--</b><em id="rC50Note"></em></div>
+      </div>
+      <ul class="checks" id="checks"></ul>
+      <div class="row" style="margin-top:10px"><button class="btn" id="discardBtn">Discard this clap</button></div>
+    </div>
+    <div class="card">
+      <h2>The clap, fading away</h2>
+      <p class="sub">A spectrogram of what the phone heard: brighter means louder. The line marks RT60, when the echo has dropped by 60 dB.</p>
+      <canvas id="decayCv" height="170"></canvas>
+    </div>
+    <div class="card">
+      <h2>Decay curve</h2>
+      <p class="sub">Energy left in the room after the clap (Schroeder curve). RT60 comes from the straight-line fit between −5 and −25 dB, extended to −60 dB.</p>
+      <div class="bands" id="bandBtns"></div>
+      <canvas id="edcCv" height="200"></canvas>
+      <div class="readout" id="edcRead"></div>
+    </div>
+    <div class="card">
+      <h2>RT60 by pitch</h2>
+      <p class="sub">Each octave band measured separately. Hollow dots had a weaker signal; crossed-out bands were too quiet to measure.</p>
+      <canvas id="bandCv" height="190"></canvas>
+      <div class="readout" id="bandRead"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ROOM ============ -->
+<section class="tab" id="tab-room">
+  <div class="card">
+    <h2>Clarity across the room</h2>
+    <p class="sub" id="roomSub">Each glow is a measured seat. Colour shows how clearly speech from the front arrives there. A bigger glow means a longer echo.</p>
+    <canvas id="roomMap" height="300"></canvas>
+    <div class="legend"><span>Words blur</span><div class="ramp"></div><span>Clear</span></div>
+    <div class="legend" style="justify-content:space-between;margin-top:2px"><span>C50 −6 dB</span><span>0 dB</span><span>+6 dB</span></div>
+    <p class="sub" id="interpNote" style="margin-top:8px"></p>
+  </div>
+  <div class="card">
+    <h2>Seats</h2>
+    <p class="sub">Median of each seat's claps. Clap at least twice per seat to check the result repeats.</p>
+    <table><thead><tr><th>Seat</th><th class="num">Claps</th><th class="num">RT60</th><th class="num">C50</th><th class="num">Spread</th><th></th></tr></thead><tbody id="seatRows"></tbody></table>
+  </div>
+  <div class="card">
+    <h2>Room size</h2>
+    <p class="sub">Used to draw the plan, set the target and work out the fix. Measure with a tape or count floor tiles.</p>
+    <div class="dims">
+      <label class="f">Length (m)<input type="number" id="dimL" min="2" max="60" step="0.1" inputmode="decimal"></label>
+      <label class="f">Width (m)<input type="number" id="dimW" min="2" max="60" step="0.1" inputmode="decimal"></label>
+      <label class="f">Height (m)<input type="number" id="dimH" min="2" max="20" step="0.1" inputmode="decimal"></label>
+    </div>
+    <label class="f" style="margin-top:8px">RT60 target (s)<input type="number" id="target" min="0.2" max="3" step="0.05" inputmode="decimal" placeholder="automatic"></label>
+    <p class="sub" id="targetNote" style="margin-top:6px"></p>
+  </div>
+</section>
+
+<!-- ============ FIX ============ -->
+<section class="tab" id="tab-fix">
+  <div class="card">
+    <h2 id="fixTitle">Fix the room</h2>
+    <p class="sub" id="fixSub"></p>
+    <canvas id="bulletCv" height="110"></canvas>
+  </div>
+  <div class="card" id="matCard">
+    <h2>What to add</h2>
+    <p class="sub" id="matSub"></p>
+    <div class="mats" id="mats"></div>
+  </div>
+  <div class="card">
+    <h2>Sanity check</h2>
+    <div class="prose" id="sanity"></div>
+  </div>
+</section>
+
+<!-- ============ METHOD ============ -->
+<section class="tab" id="tab-method">
+  <div class="card prose">
+    <h2>What it measures</h2>
+    <p><b>RT60 (reverberation time)</b> is how long a sound takes to fade by 60 dB. Long reverberation makes each syllable smear into the next. Classrooms should be at or below <b>0.6 s</b> (ANSI/ASA S12.60, rooms under 283 m³) or <b>0.7 s</b> (283–566 m³).</p>
+    <p><b>C50 (clarity)</b> compares the sound energy arriving in the first 50 ms, which helps you understand words, with everything that arrives later, which blurs them. Above 0 dB speech is usually clear; below about −3 dB it becomes hard to follow.</p>
+    <p>Both are <b>ratios</b> within one recording, so the phone microphone doesn't need level calibration.</p>
+  </div>
+  <div class="card prose">
+    <h2>How a clap becomes numbers</h2>
+    <p>The phone keeps the last quarter-second of sound and starts recording when a sound rises 30 dB above the room's background. It keeps 3 s of decay, splits it into five octave bands (250 Hz to 4 kHz) with time-reversed filters, and subtracts the background noise. It then integrates the energy backwards (Schroeder's method), with a tail correction after the decay meets the noise (after Lundeby).</p>
+    <p><b>T20</b>: a straight-line fit from −5 to −25 dB, multiplied by 3. The headline RT60 is the average of the 500 Hz, 1 kHz and 2 kHz bands, the ones that matter most for speech.</p>
+  </div>
+  <div class="card prose">
+    <h2>Checks on every clap</h2>
+    <p><b>Microphone</b>: the decay must reach at least 35 dB above the background (30 dB is accepted with a caution), and the fitted line must be straight (r ≥ 0.99). Echo cancellation, noise suppression and auto-gain are switched off.</p>
+    <p><b>Accelerometer</b>: a jolt when the sound starts means something hit the desk or the phone, not a clap in the air, so that clap is rejected.</p>
+    <p><b>Gyroscope + accelerometer</b>: if the phone was moving during the 3 s, the clap is rejected.</p>
+    <p><b>Second sound</b>: a new sound arriving during the decay (a cough, a door) is rejected.</p>
+    <p><b>Repeatability</b>: the room table shows how far apart repeat claps at the same seat are.</p>
+  </div>
+  <div class="card prose">
+    <h2>Limits</h2>
+    <p>A clap has little energy below 500 Hz, so the 250 Hz band is often too quiet. A balloon pop works better there. Phone microphones and their internal processing vary, so compare with a second clap and, if you can, a second phone. The fix-it advice uses Sabine's formula, which assumes sound is spread evenly through the room. Treat the areas as a starting estimate.</p>
+  </div>
+  <div class="card">
+    <h2>Your data</h2>
+    <div class="row" style="margin-top:6px"><button class="btn" id="csvBtn">Download CSV</button><button class="btn" id="clearBtn">Clear all seats</button></div>
+  </div>
+</section>
+</main>
+
+<nav>
+  <button data-tab="measure" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2M7 8v8M11 4v16M15 7v10M19 10v4M21 12h0"/></svg>Measure</button>
+  <button data-tab="room"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><circle cx="15" cy="14" r="1.6"/><path d="M8 4v2M16 4v2"/></svg>Room</button>
+  <button data-tab="fix"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.6-.6-.6-2.6z"/></svg>Fix</button>
+  <button data-tab="method"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5"/></svg>Method</button>
+</nav>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+
+/* ================= Acoustics (pure functions, unit-tested) ================= */
+const BANDS=[250,500,1000,2000,4000], MID=[500,1000,2000];
+const PRE_S=0.25, POST_S=3.0;
+
+function fft(re, im){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}}
+  for(let len=2;len<=n;len<<=1){
+    const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);
+    for(let i=0;i<n;i+=len){let cr=1,ci=0;
+      for(let k=0;k<len/2;k++){const p=i+k,q=p+len/2,tr=re[q]*cr-im[q]*ci,ti=re[q]*ci+im[q]*cr;
+        re[q]=re[p]-tr;im[q]=im[p]-ti;re[p]+=tr;im[p]+=ti;const nr=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=nr;}}
+  }
+}
+// RBJ band-pass (0 dB peak); two cascaded Q=1 sections give roughly one octave
+function bpCoefs(fc,sr,Q){const w=2*Math.PI*fc/sr,al=Math.sin(w)/(2*Q),a0=1+al;return [al/a0,0,-al/a0,-2*Math.cos(w)/a0,(1-al)/a0];}
+function biquad(x,c){const [b0,b1,b2,a1,a2]=c,y=new Float64Array(x.length);let x1=0,x2=0,y1=0,y2=0;
+  for(let i=0;i<x.length;i++){const v=x[i],o=b0*v+b1*x1+b2*x2-a1*y1-a2*y2;x2=x1;x1=v;y2=y1;y1=o;y[i]=o;}return y;}
+// time-reversed filtering keeps filter ringing out of the decay (Jacobsen & Rindel)
+function octaveBand(x,sr,fc){const c=bpCoefs(fc,sr,1);return biquad(biquad(Float64Array.from(x).reverse(),c),c).reverse();}
+
+function linfit(t,y){const n=t.length;let mt=0,my=0;for(let i=0;i<n;i++){mt+=t[i];my+=y[i];}mt/=n;my/=n;
+  let sxx=0,sxy=0,syy=0;for(let i=0;i<n;i++){const a=t[i]-mt,b=y[i]-my;sxx+=a*a;sxy+=a*b;syy+=b*b;}
+  const s=sxy/sxx;return {s,b:my-s*mt,r:sxy/Math.sqrt(sxx*syy)};}
+// fit the decay curve between hi and lo dB (e.g. -5..-25); null if it never gets that low
+function fitEdc(edc,dt,hi,lo){let a=-1,e=-1;
+  for(let i=0;i<edc.length;i++){if(a<0&&edc[i]<=hi)a=i;if(edc[i]<lo){e=i;break;}}
+  if(a<0||e<0||e-a<4) return null;
+  const T=[],Y=[];for(let i=a;i<e;i++){T.push(i*dt);Y.push(edc[i]);}
+  const f=linfit(T,Y);return {...f,hi,lo,T:-60/f.s};}
+
+// one band: noise floor, truncation, Schroeder integral with tail correction, T20/T30/EDT, C50
+function bandDecay(y,sr,i0,nNoise){
+  let N=0;for(let i=0;i<nNoise;i++)N+=y[i]*y[i];N/=nNoise;
+  const B=Math.round(.01*sr),nb=Math.floor((y.length-i0)/B),L=new Float64Array(nb);
+  for(let k=0;k<nb;k++){let s=0;for(let i=i0+k*B,e=i+B;i<e;i++)s+=y[i]*y[i];L[k]=10*Math.log10(s/B+1e-30);}
+  const Ln=10*Math.log10(N+1e-30);
+  let pk=0;for(let k=1;k<Math.min(6,nb);k++)if(L[k]>L[pk])pk=k;
+  const dr=L[pk]-Ln;
+  let kt=nb;for(let k=pk+1;k<nb;k++)if(L[k]<=Ln+5){kt=k;break;}
+  // envelope regression above the noise, used to add the energy hidden under the noise floor
+  const ts=[],ys=[];
+  for(let k=pk+1;k<kt;k++){if(L[k]<Ln+10)break;const ms=Math.pow(10,L[k]/10)-N;if(ms<=0)break;ts.push((k+.5)*B/sr);ys.push(10*Math.log10(ms));}
+  let C=0;
+  if(ts.length>=4){const f=linfit(ts,ys);if(f.s<0)C=Math.pow(10,(f.s*kt*B/sr+f.b)/10)*(-10/(f.s*Math.LN10))*sr;}
+  const n=Math.min(y.length,i0+kt*B)-i0,E=new Float64Array(n+1);E[n]=C;
+  for(let i=n-1;i>=0;i--){const v=y[i0+i];E[i]=E[i+1]+v*v-N;}
+  const dt=.001,step=Math.round(sr*dt),E0=E[0],edc=[];
+  for(let i=0;i<=n;i+=step)edc.push(10*Math.log10(Math.max(E[i],1e-30)/E0));
+  const n50=Math.round(.05*sr);
+  const C50=n50<n&&E[n50]>0?10*Math.log10((E0-E[n50])/E[n50]):NaN;
+  const T20=fitEdc(edc,dt,-5,-25),T30=fitEdc(edc,dt,-5,-35),EDT=fitEdc(edc,dt,0,-10);
+  if(EDT)EDT.T=-60/EDT.s;
+  return {dr,Ln,edc,dt,T20,T30,EDT,C50,early:E0-E[Math.min(n50,n)],late:E[Math.min(n50,n)],tTrunc:kt*B/sr};
+}
+function gradeBand(d){
+  if(!d.T20||!isFinite(d.T20.T)||d.T20.T<=0) return {q:"poor",why:"too quiet to measure"};
+  const r=Math.abs(d.T20.r);
+  if(d.dr>=35&&r>=0.99) return {q:"good",why:""};
+  if(d.dr>=30&&r>=0.98) return {q:"fair",why:d.dr<35?"weak signal":"slightly curved decay"};
+  return {q:"poor",why:d.dr<30?"too quiet to measure":"decay not straight"};
+}
+const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+const median=a=>{if(!a.length)return NaN;const s=[...a].sort((p,q)=>p-q),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+
+// x: captured audio, trig: sample index where the trigger fired
+function analyzeClap(x,sr,trig){
+  const a=Math.max(0,trig-Math.round(.005*sr)),b=Math.min(x.length,trig+Math.round(.03*sr));
+  // onset = first sample within 20 dB of the peak (ISO 3382-1 A.3.4)
+  let pk=0;for(let i=a;i<b;i++)pk=Math.max(pk,Math.abs(x[i]));
+  let on=a;while(on<b&&Math.abs(x[on])<pk*.1)on++;
+  const i0=on,nNoise=Math.max(256,trig-Math.round(.02*sr));
+  let clip=0;for(let i=0;i<x.length;i++)if(Math.abs(x[i])>=.995)clip++;
+  // second sound: broadband 10 ms level jumping up >10 dB after the first 100 ms
+  let N=0;for(let i=0;i<nNoise;i++)N+=x[i]*x[i];const Ln=10*Math.log10(N/nNoise+1e-30);
+  const B=Math.round(.01*sr);let prev=null,second=false,secondAt=0;
+  for(let k=0;i0+(k+1)*B<=x.length;k++){let s=0;for(let i=i0+k*B,e=i+B;i<e;i++)s+=x[i]*x[i];const L=10*Math.log10(s/B+1e-30);
+    if(k>=10&&prev!=null&&L>prev+10&&L>Ln+15){second=true;secondAt=k*B/sr;break;}prev=L;}
+  const bands=BANDS.map(fc=>{const d=bandDecay(octaveBand(x,sr,fc),sr,i0,nNoise);d.fc=fc;d.grade=gradeBand(d);return d;});
+  const mid=bands.filter(d=>MID.includes(d.fc)&&d.grade.q!=="poor");
+  const rt=mid.length?mean(mid.map(d=>d.T20.T)):NaN;
+  // speech clarity: energies of the usable speech bands added before the ratio (steadier than averaging dB)
+  const eE=mid.reduce((s,d)=>s+d.early,0),eL=mid.reduce((s,d)=>s+d.late,0);
+  const c50=mid.length&&eE>0&&eL>0?10*Math.log10(eE/eL):NaN;
+  let ok=mid.length>0&&!second,reason="";
+  if(second) reason=`Another sound arrived ${secondAt.toFixed(2)} s into the echo. Wait for quiet and clap again.`;
+  else if(!mid.length) reason="The clap wasn't loud enough above the background noise. Clap harder, or measure when the room is quieter.";
+  return {ok,reason,rt,c50,bands,clipped:clip>3,second,i0,onsetT:i0/sr,nMid:mid.length};
+}
+
+/* ================= Room maths (Sabine, ANSI S12.60) ================= */
+function ansiTarget(V){return V<283?0.6:V<=566?0.7:null;}
+const MATERIALS=[
+  {key:"panel",name:"Acoustic panels",alpha:0.9,note:"50 mm mineral-wool or fabric-covered panels on walls or ceiling"},
+  {key:"curtain",name:"Heavy curtains",alpha:0.5,note:"Thick, pleated curtains over a wall or window"},
+  {key:"carpet",name:"Carpet",alpha:0.3,note:"Carpet or rugs on a bare hard floor"}];
+const MAT_ICON={
+  panel:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4fd18b" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
+  curtain:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9085e9" stroke-width="1.8" stroke-linecap="round"><path d="M3 3h18M5 3c0 6 1 12-1 18M9 3c0 6 1 12-1 18M15 3c0 6-1 12 1 18M19 3c0 6-1 12 1 18"/></svg>',
+  carpet:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e87ba4" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16l-2 10H6z"/><path d="M8 12h8"/></svg>'};
+const ALPHA_HARD=0.03; // painted plaster / concrete being covered
+function sabineFix(V,Tm,Tt){const dA=0.161*V*(1/Tt-1/Tm);
+  return {dA,items:MATERIALS.map(m=>({...m,area:dA>0?dA/(m.alpha-ALPHA_HARD):0}))};}
+const impliedAlpha=(V,Stot,T)=>0.161*V/T/Stot;
+
+/* ================= State & storage ================= */
+const S={state:"idle",sr:48000,ring:null,ringPos:0,noise:[],armedAt:0,cap:null,capN:0,trigAt:0,trigIdx:0,
+  motion:[],haveMotion:false,last:null,lastClip:null,band:1000,tab:"measure",
+  room:{L:8,W:6,H:3,target:null},seats:[],sel:null};
+const KEY="echo-aurora-v1";
+function save(){try{localStorage.setItem(KEY,JSON.stringify({room:S.room,seats:S.seats,sel:S.sel}));}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){Object.assign(S.room,d.room||{});S.seats=d.seats||[];S.sel=d.sel??null;}}catch(e){}}
+const seatById=id=>S.seats.find(s=>s.id===id);
+function seatStats(s){const ok=s.claps;return {n:ok.length,rt:median(ok.map(c=>c.rt)),c50:median(ok.map(c=>c.c50).filter(isFinite)),
+  spread:ok.length>1?Math.max(...ok.map(c=>c.rt))-Math.min(...ok.map(c=>c.rt)):NaN};}
+const roomV=()=>S.room.L*S.room.W*S.room.H;
+const roomS=()=>2*(S.room.L*S.room.W+S.room.L*S.room.H+S.room.W*S.room.H);
+function targetRT(){return S.room.target||ansiTarget(roomV())||0.8;}
+function roomRT(){return median(S.seats.filter(s=>s.claps.length).map(s=>seatStats(s).rt));}
+
+/* ================= Colour ================= */
+const C={};
+function readColors(){const cs=getComputedStyle(document.documentElement);
+  for(const k of["night","card","card2","line","grid","axis","ink","ink2","muted","aurora","teal","violet","clear","mid","blur","good","warn","crit"])C[k]=cs.getPropertyValue("--"+k).trim();}
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+function c50Rgb(v){const t=Math.max(-1,Math.min(1,v/6));return t<0?mix(hex(C.mid),hex(C.blur),-t):mix(hex(C.mid),hex(C.clear),t);}
+const rgba=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+// aurora colour map for spectrograms: night -> teal -> green -> pale mint (sequential, lightness rises monotonically)
+const LUT=(()=>{const st=[[0,"#070b18"],[.28,"#0d2c45"],[.5,"#11786a"],[.7,"#3cc488"],[.86,"#a6efc0"],[1,"#f4fff8"]].map(([p,h])=>[p,...hex(h)]);
+  const o=new Uint8Array(256*3);for(let i=0;i<256;i++){const p=i/255;let k=0;while(k<st.length-2&&p>st[k+1][0])k++;
+  const a=st[k],b=st[k+1],t=(p-a[0])/(b[0]-a[0]);for(let j=0;j<3;j++)o[i*3+j]=Math.round(a[j+1]+(b[j+1]-a[j+1])*t);}return o;})();
+
+/* ================= Canvas helpers ================= */
+function setup(cv){
+  const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1,h=cv.dataset.h?+cv.dataset.h:r.height,g=cv.getContext("2d");
+  if(r.width<20)return {g,w:r.width,h,hidden:true};
+  if(cv.width!==Math.round(r.width*d)||cv.height!==Math.round(h*d)){cv.width=Math.round(r.width*d);cv.height=Math.round(h*d);if(cv.dataset.h)cv.style.height=h+"px";}
+  g.setTransform(d,0,0,d,0,0);return {g,w:r.width,h,hidden:false};
+}
+function niceTicks(min,max,n){const span=max-min||1,step0=span/n,mag=Math.pow(10,Math.floor(Math.log10(step0))),err=step0/mag;
+  const step=(err>=7.5?10:err>=3.5?5:err>=1.5?2:1)*mag,out=[];for(let v=Math.ceil(min/step)*step;v<=max+1e-9;v+=step)out.push(+v.toFixed(10));return out;}
+function axes(g,box,xt,yt,fx,fy,X,Y){
+  g.font="11px system-ui,sans-serif";g.lineWidth=1;
+  for(const v of yt){const y=Y(v);g.strokeStyle=C.grid;g.beginPath();g.moveTo(box.l,y);g.lineTo(box.r,y);g.stroke();
+    g.fillStyle=C.muted;g.textAlign="right";g.textBaseline="middle";g.fillText(fy(v),box.l-5,y);}
+  g.textBaseline="top";
+  for(const v of xt){const x=X(v);g.fillStyle=C.muted;g.textAlign=x>box.r-20?"right":x<box.l+20?"left":"center";g.fillText(fx(v),x>box.r-20?box.r:x,box.b+5);}
+  g.strokeStyle=C.axis;g.beginPath();g.moveTo(box.l,box.b);g.lineTo(box.r,box.b);g.stroke();
+}
+const fmtS=v=>isFinite(v)?v.toFixed(2)+" s":"--";
+const fmtDb=v=>isFinite(v)?(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(1)+" dB":"--";
+
+/* ================= Audio ================= */
+const WORKLET=`class Tap extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array(512);this.n=0}
+process(i){const c=i[0]&&i[0][0];if(c){for(let k=0;k<c.length;k++){this.b[this.n++]=c[k];if(this.n===512){this.port.postMessage(this.b.slice());this.n=0}}}return true}}
+registerProcessor('tap',Tap);`;
+
+async function startAudio(){
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  await ctx.resume();
+  S.ctx=ctx;S.sr=ctx.sampleRate;
+  const src=ctx.createMediaStreamSource(stream);
+  const an=ctx.createAnalyser();an.fftSize=2048;an.smoothingTimeConstant=0;an.minDecibels=-110;an.maxDecibels=-30;
+  src.connect(an);S.analyser=an;S.spec=new Uint8Array(an.frequencyBinCount);
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:"application/javascript"})));
+  const tap=new AudioWorkletNode(ctx,"tap"),mute=ctx.createGain();mute.gain.value=0;
+  src.connect(tap);tap.connect(mute);mute.connect(ctx.destination);
+  S.ring=new Float32Array(Math.round(PRE_S*S.sr));S.ringPos=0;
+  tap.port.onmessage=e=>onBlock(e.data);
+  const tr=stream.getAudioTracks()[0],st=tr.getSettings?tr.getSettings():{};
+  S.micNote=st.autoGainControl||st.noiseSuppression?"Mic processing could not be fully switched off":"";
+  setChip("chipMic",S.micNote?"wait":"ok","Mic");
+}
+
+function onBlock(x){
+  const now=performance.now()/1000;
+  if(S.state==="capturing"){
+    const take=Math.min(x.length,S.cap.length-S.capN);S.cap.set(x.subarray(0,take),S.capN);S.capN+=take;
+    if(S.capN>=S.cap.length)finishCapture();
+    return;
+  }
+  let pk=0,ms=0;for(let i=0;i<x.length;i++){const a=Math.abs(x[i]);if(a>pk)pk=a;ms+=x[i]*x[i];}
+  const Lr=10*Math.log10(ms/x.length+1e-20),Lp=20*Math.log10(pk+1e-10);
+  if(S.state==="armed"){
+    const floor=S.noise.length?[...S.noise].sort((a,b)=>a-b)[Math.floor(S.noise.length*.2)]:Lr;
+    const D=S.diag;D.blocks++;D.floor=floor;
+    if(Lp-floor>D.bestRise||now-D.bestT>3){D.bestRise=Lp-floor;D.bestRms=Lr-floor;D.bestPk=Lp;D.bestT=now;}
+    if(now-S.armedAt>1&&S.noise.length>20&&Lp>floor+30&&Lr>floor+20&&Lp>-45){startCapture(x,now);return;}
+    S.noise.push(Lr);if(S.noise.length>200)S.noise.shift();
+    if(now-S.armedAt>60){disarm("Timed out. Tap Listen to try again.");}
+  }
+  const R=S.ring;for(let i=0;i<x.length;i++){R[S.ringPos]=x[i];S.ringPos=(S.ringPos+1)%R.length;}
+}
+function startCapture(x,now){
+  const pre=S.ring.length,cap=new Float32Array(pre+Math.round(POST_S*S.sr));
+  cap.set(S.ring.subarray(S.ringPos),0);cap.set(S.ring.subarray(0,S.ringPos),pre-S.ringPos);
+  // the trigger block itself: find where it first rose, so the onset sits at index 'pre'
+  cap.set(x.subarray(0,Math.min(x.length,cap.length-pre)),pre);
+  S.cap=cap;S.capN=pre+x.length;S.trigIdx=pre;S.trigAt=now;S.state="capturing";
+  setMsg("Recording the echo…","Stay quiet for 3 seconds.");
+}
+function finishCapture(){
+  S.state="analysing";
+  setTimeout(()=>{
+    const r=analyzeClap(S.cap,S.sr,S.trigIdx);
+    r.motion=motionCheck(S.trigAt);
+    if(r.ok&&r.motion.reject){r.ok=false;r.reason=r.motion.reason;}
+    S.lastClip=S.cap;S.last=r;
+    const seat=seatById(S.sel);
+    if(r.ok&&seat){seat.claps.push({t:Date.now(),rt:r.rt,c50:r.c50,
+      bands:r.bands.map(d=>({fc:d.fc,T20:d.T20?d.T20.T:null,C50:d.C50,dr:d.dr,q:d.grade.q}))});save();}
+    r.seatId=S.sel;r.clapNo=seat?seat.claps.length:0;
+    try{navigator.vibrate&&navigator.vibrate(r.ok?[60,50,60]:[250]);}catch(e){}
+    S.state="idle";$("listenBtn").classList.remove("armed");$("orb").classList.remove("armed");$("listenBtn").textContent="Listen";
+    setMsg(r.ok?"Measured":"Clap not used",r.ok?"Clap again here to check it repeats, or move to another seat.":r.reason);
+    if(r.ok){const k=$("sky");k.classList.remove("flash");void k.offsetWidth;k.classList.add("flash");}
+    renderResult();drawMini();
+  },30);
+}
+function arm(){
+  if(S.state==="armed"){disarm("Stopped listening.");return;}
+  if(S.state!=="idle")return;
+  if(S.sel==null){setMsg("Choose a seat first","Tap the room plan below where the phone is sitting.");$("miniMap").scrollIntoView({behavior:"smooth",block:"center"});return;}
+  S.state="armed";S.armedAt=performance.now()/1000;S.noise=[];S.diag={blocks:0,floor:NaN,bestRise:-99,bestRms:-99,bestPk:-99,bestT:0};
+  $("listenBtn").classList.add("armed");$("orb").classList.add("armed");$("listenBtn").textContent="Stop";
+  setMsg("Listening…","Walk to the front and clap once.");
+}
+function disarm(t){S.state="idle";$("listenBtn").classList.remove("armed");$("orb").classList.remove("armed");$("listenBtn").textContent="Listen";setMsg("Ready",t);}
+function setMsg(b,t){$("msg").innerHTML=`<b>${b}</b>${t}`;}
+
+/* ================= Motion ================= */
+function onMotion(e){
+  const t=performance.now()/1000;let dyn=null;
+  const a=e.acceleration;
+  if(a&&a.x!=null)dyn=Math.hypot(a.x,a.y,a.z);
+  else{const g=e.accelerationIncludingGravity;if(!g||g.x==null)return;
+    if(!S.grav)S.grav=[g.x,g.y,g.z];for(const [i,v] of [g.x,g.y,g.z].entries())S.grav[i]+=.08*(v-S.grav[i]);
+    dyn=Math.hypot(g.x-S.grav[0],g.y-S.grav[1],g.z-S.grav[2]);}
+  const r=e.rotationRate,rot=r&&r.alpha!=null?Math.hypot(r.alpha,r.beta,r.gamma):0;
+  S.motion.push({t,dyn,rot});S.haveMotion=true;
+  while(S.motion.length&&S.motion[0].t<t-8)S.motion.shift();
+}
+function motionWindow(t0,t1){const m=S.motion.filter(p=>p.t>=t0&&p.t<=t1);if(!m.length)return null;
+  return {maxDyn:Math.max(...m.map(p=>p.dyn)),rmsDyn:Math.sqrt(mean(m.map(p=>p.dyn*p.dyn))),maxRot:Math.max(...m.map(p=>p.rot))};}
+function motionCheck(tTrig){
+  if(!S.haveMotion)return {reject:false,status:"none",text:"No motion sensor: stillness not checked"};
+  const near=motionWindow(tTrig-.3,tTrig+.3),all=motionWindow(tTrig-.3,tTrig+POST_S);
+  if(!near||!all)return {reject:false,status:"none",text:"Motion data missing for this clap"};
+  if(near.maxDyn>1.2)return {reject:true,status:"bump",reason:"The phone was jolted as the sound started, so this was probably a knock on the desk, not a clap in the air. Leave the phone untouched and clap again.",text:"Jolt at the start"};
+  if(all.rmsDyn>.3||all.maxRot>20)return {reject:true,status:"moved",reason:"The phone moved during the recording. Put it down flat and don't touch it until it buzzes.",text:"Phone moved"};
+  return {reject:false,status:"still",text:"Phone stayed still"};
+}
+function stillNow(){const t=performance.now()/1000,w=motionWindow(t-1,t);return w?w.rmsDyn<.15&&w.maxRot<8:null;}
+
+/* ================= Live aurora (scrolling spectrogram) ================= */
+let skyRows=null;
+const SKY_GAMMA=Uint8Array.from({length:256},(_,v)=>Math.round(255*Math.pow(v/255,1.8)));
+function drawSky(){
+  const cv=$("skyCv"),r=cv.getBoundingClientRect();if(r.width<20||!S.analyser)return;
+  const W=Math.max(60,Math.round(r.width/3)),H=150,g=cv.getContext("2d");
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;skyRows=null;}
+  if(!skyRows){skyRows=new Int32Array(H);const n=S.spec.length,f0=100,f1=8000;
+    for(let y=0;y<H;y++){const f=f0*Math.pow(f1/f0,1-y/(H-1));skyRows[y]=Math.min(n-1,Math.round(f/(S.sr/2)*n));}}
+  S.analyser.getByteFrequencyData(S.spec);
+  g.drawImage(cv,1,0,W-1,H,0,0,W-1,H);
+  const img=g.createImageData(1,H);
+  for(let y=0;y<H;y++){const o=SKY_GAMMA[S.spec[skyRows[y]]]*3,p=y*4;img.data[p]=LUT[o];img.data[p+1]=LUT[o+1];img.data[p+2]=LUT[o+2];img.data[p+3]=255;}
+  g.putImageData(img,W-1,0);
+}
+
+/* ================= Result rendering ================= */
+function renderResult(){
+  const r=S.last;if(!r)return;$("result").style.display="block";
+  const seat=seatById(r.seatId);
+  $("resTitle").textContent=seat?`Seat ${seat.id}`+(r.ok?`, clap ${r.clapNo}`:""):"Last clap";
+  $("resSub").textContent=r.ok?`Saved. ${seat&&seat.claps.length>1?`Seat median so far: RT60 ${fmtS(seatStats(seat).rt)}, C50 ${fmtDb(seatStats(seat).c50)}.`:"Clap again here to check it repeats."}`:r.reason;
+  const tgt=targetRT();
+  countUp($("rRt"),r.rt,v=>`${v.toFixed(2)}<small>s</small>`);
+  $("rRtNote").textContent=isFinite(r.rt)?(r.rt<=tgt?`Within the ${tgt.toFixed(1)} s target`:`${(r.rt-tgt).toFixed(2)} s over the ${tgt.toFixed(1)} s target`):"";
+  countUp($("rC50"),r.c50,v=>`${(v>0.05?"+":v<-0.05?"−":"")+Math.abs(v).toFixed(1)}<small>dB</small>`);
+  const vd=!r.ok?["Not used",C.crit]:r.rt<=tgt?["Crisp, like a recording studio",C.aurora]:r.rt<=tgt*1.5?["A bit boomy",C.warn]:["Echo cave",C.blur];
+  $("verdict").innerHTML=`<i style="background:${vd[1]};box-shadow:0 0 10px ${vd[1]}"></i>${vd[0]}`;
+  $("rC50Note").textContent=!isFinite(r.c50)?"":r.c50>=0?"Speech will be clear here":r.c50>=-3?"Words start to blur":"Hard to follow speech";
+  const midB=r.bands.filter(d=>MID.includes(d.fc));
+  const minDr=Math.min(...midB.map(d=>d.dr)),minR=Math.min(...midB.filter(d=>d.T20).map(d=>Math.abs(d.T20.r)));
+  const items=[
+    [minDr>=35?"ok":minDr>=30?"warn":"bad",`Signal ${minDr.toFixed(0)} dB above background (need 35)`],
+    [!isFinite(minR)?"bad":minR>=.99?"ok":minR>=.98?"warn":"bad",`Straight decay, r = ${isFinite(minR)?minR.toFixed(3):"--"}`],
+    [r.motion.status==="still"?"ok":r.motion.status==="none"?"warn":"bad",r.motion.text],
+    [r.second?"bad":"ok",r.second?"Second sound during echo":"No interrupting sound"],
+    [r.clipped?"warn":"ok",r.clipped?"Clap clipped the mic (decay still usable)":"No clipping"],
+    [r.nMid===3?"ok":r.nMid?"warn":"bad",`${r.nMid} of 3 speech bands usable`]];
+  if(S.micNote)items.push(["warn",S.micNote]);
+  $("checks").innerHTML=items.map(([k,t])=>`<li><span class="ic ${k}">${k==="ok"?"✓":k==="warn"?"!":"×"}</span>${t}</li>`).join("");
+  $("discardBtn").style.display=r.ok?"":"none";
+  $("bandBtns").innerHTML=BANDS.map(f=>`<button data-f="${f}" class="${f===S.band?"on":""}">${f<1000?f:f/1000+"k"} Hz</button>`).join("");
+  drawDecay();drawEdc();drawBands();
+}
+// numbers roll up to their value, the one bit of motion that answers a clap
+function countUp(el,to,fmt){if(!isFinite(to)){el.innerHTML="--";return;}
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches){el.innerHTML=fmt(to);return;}
+  const t0=performance.now(),D=700;const step=t=>{const k=Math.min(1,(t-t0)/D),e=1-Math.pow(1-k,3);el.innerHTML=fmt(to*e);if(k<1)requestAnimationFrame(step);};requestAnimationFrame(step);}
+function drawDecay(){
+  const cv=$("decayCv"),{g,w,h,hidden}=setup(cv);if(hidden||!S.lastClip)return;
+  const x=S.lastClip,sr=S.sr,r=S.last,N=1024,hop=256,start=Math.max(0,r.i0-Math.round(.05*sr));
+  const frames=Math.floor((x.length-start-N)/hop);if(frames<2)return;
+  const box={l:34,r:w-6,t:6,b:h-20},pw=Math.round(box.r-box.l),ph=Math.round(box.b-box.t),d=window.devicePixelRatio||1;
+  const PW=Math.round(pw*d),PH=Math.round(ph*d),img=g.createImageData(PW,PH);
+  const win=new Float64Array(N);for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/(N-1));
+  const spec=[];let mx=-1e9;
+  for(let f=0;f<frames;f++){const re=new Float64Array(N),im=new Float64Array(N);for(let i=0;i<N;i++)re[i]=x[start+f*hop+i]*win[i];fft(re,im);
+    const p=new Float32Array(N/2);for(let k=0;k<N/2;k++){p[k]=10*Math.log10(re[k]*re[k]+im[k]*im[k]+1e-20);if(p[k]>mx)mx=p[k];}spec.push(p);}
+  const f0=100,f1=8000;
+  for(let py=0;py<PH;py++){const f=f0*Math.pow(f1/f0,1-py/(PH-1)),k=Math.min(N/2-1,Math.round(f/sr*N));
+    for(let px=0;px<PW;px++){const fr=Math.min(frames-1,Math.floor(px/PW*frames)),v=Math.max(0,Math.min(1,(spec[fr][k]-(mx-75))/75)),o=Math.round(v*255)*3,q=(py*PW+px)*4;
+      img.data[q]=LUT[o];img.data[q+1]=LUT[o+1];img.data[q+2]=LUT[o+2];img.data[q+3]=255;}}
+  g.clearRect(0,0,w,h);g.putImageData(img,Math.round(box.l*d),Math.round(box.t*d));
+  const dur=(frames*hop)/sr,X=t=>box.l+(t+.05)/dur*pw;
+  g.font="11px system-ui,sans-serif";g.fillStyle=C.muted;g.textAlign="right";g.textBaseline="middle";
+  for(const [f,lab] of [[8000,"8k"],[1000,"1k"],[100,"100"]]){const y=box.t+(1-Math.log(f/f0)/Math.log(f1/f0))*ph;g.fillText(lab,box.l-5,Math.min(box.b-5,Math.max(box.t+5,y)));}
+  g.textAlign="center";g.textBaseline="top";
+  for(const t of niceTicks(0,dur-.05,5)){g.fillText(t+" s",Math.min(box.r-12,X(t)),box.b+5);}
+  if(isFinite(r.rt)&&r.rt<dur){const xr=X(r.rt);g.strokeStyle=C.ink;g.setLineDash([4,3]);g.lineWidth=1.5;g.beginPath();g.moveTo(xr,box.t);g.lineTo(xr,box.b);g.stroke();g.setLineDash([]);
+    g.fillStyle=C.ink;g.textAlign=xr>box.r-90?"right":"left";g.textBaseline="top";g.font="600 12px system-ui,sans-serif";g.fillText(`RT60 ${r.rt.toFixed(2)} s`,xr+(xr>box.r-90?-5:5),box.t+4);}
+}
+const edcState={hover:null};
+function drawEdc(){
+  const cv=$("edcCv"),{g,w,h,hidden}=setup(cv);if(hidden||!S.last)return;
+  const d=S.last.bands.find(b=>b.fc===S.band);g.clearRect(0,0,w,h);
+  const T=d.T20?d.T20.T:1,tmax=Math.min(POST_S,Math.max(.6,(isFinite(T)?T:1)*1.15,d.tTrunc));
+  const box={l:38,r:w-8,t:10,b:h-22},X=t=>box.l+t/tmax*(box.r-box.l),Y=v=>box.t+(-v)/70*(box.b-box.t);
+  // evaluation range band
+  g.fillStyle="rgba(47,191,174,.10)";g.fillRect(box.l,Y(-5),box.r-box.l,Y(-25)-Y(-5));
+  axes(g,box,niceTicks(0,tmax,5),[0,-10,-20,-30,-40,-50,-60,-70],v=>v+" s",v=>v+"",X,Y);
+  g.fillStyle=C.muted;g.textAlign="right";g.textBaseline="bottom";g.font="11px system-ui,sans-serif";g.fillText("fit range −5 to −25 dB",box.r,Y(-25)-3);
+  g.save();g.beginPath();g.rect(box.l,box.t,box.r-box.l,box.b-box.t);g.clip();
+  g.strokeStyle=C.aurora;g.lineWidth=2;g.beginPath();
+  d.edc.forEach((v,i)=>{const t=i*d.dt;if(t>tmax)return;const x=X(t),y=Y(Math.max(v,-70));i?g.lineTo(x,y):g.moveTo(x,y);});g.stroke();
+  if(d.T20){const f=d.T20,ta=(0-f.b)/f.s,tb=(-60-f.b)/f.s;g.strokeStyle=C.ink;g.lineWidth=1.5;g.setLineDash([5,4]);g.beginPath();g.moveTo(X(Math.max(0,ta)),Y(f.s*Math.max(0,ta)+f.b));g.lineTo(X(tb),Y(-60));g.stroke();g.setLineDash([]);
+    if(tb<=tmax){g.fillStyle=C.ink;g.beginPath();g.arc(X(tb),Y(-60),4,0,7);g.fill();g.font="600 12px system-ui,sans-serif";g.textAlign=X(tb)>box.r-80?"right":"left";g.textBaseline="bottom";g.fillText(`RT60 ${f.T.toFixed(2)} s`,X(tb)+(X(tb)>box.r-80?-6:6),Y(-60)-4);}}
+  if(edcState.hover!=null){const t=edcState.hover*tmax,i=Math.min(d.edc.length-1,Math.round(t/d.dt));g.strokeStyle=C.axis;g.beginPath();g.moveTo(X(t),box.t);g.lineTo(X(t),box.b);g.stroke();
+    if(i>=0&&i<d.edc.length){g.fillStyle=C.aurora;g.strokeStyle=C.night;g.lineWidth=2;g.beginPath();g.arc(X(t),Y(Math.max(d.edc[i],-70)),5,0,7);g.fill();g.stroke();
+      $("edcRead").textContent=`${t.toFixed(2)} s after the clap: ${d.edc[i].toFixed(1)} dB of energy left`;}}
+  else $("edcRead").textContent=`${S.band>=1000?S.band/1000+" kHz":S.band+" Hz"} band: T20 ${d.T20?fmtS(d.T20.T):"--"}, T30 ${d.T30?fmtS(d.T30.T):"--"}, EDT ${d.EDT?fmtS(d.EDT.T):"--"}, C50 ${fmtDb(d.C50)}, ${d.dr.toFixed(0)} dB above background.`;
+  g.restore();
+}
+const bandState={hover:null};
+function drawBands(){
+  const cv=$("bandCv"),{g,w,h,hidden}=setup(cv);if(hidden||!S.last)return;g.clearRect(0,0,w,h);
+  const bs=S.last.bands,tgt=targetRT(),vals=bs.filter(b=>b.grade.q!=="poor").map(b=>b.T20.T);
+  const ymax=Math.max(1,tgt*1.3,...vals.map(v=>v*1.3));
+  const box={l:38,r:w-10,t:14,b:h-22},n=bs.length,X=i=>box.l+(i+.5)/n*(box.r-box.l),Y=v=>box.b-v/ymax*(box.b-box.t);
+  axes(g,box,[],niceTicks(0,ymax,4),()=>"",v=>v+" s",X,Y);
+  g.fillStyle=C.muted;g.textAlign="center";g.textBaseline="top";
+  bs.forEach((b,i)=>g.fillText(b.fc<1000?b.fc+" Hz":b.fc/1000+" kHz",X(i),box.b+5));
+  g.strokeStyle=C.warn;g.setLineDash([6,4]);g.lineWidth=1.5;g.beginPath();g.moveTo(box.l,Y(tgt));g.lineTo(box.r,Y(tgt));g.stroke();g.setLineDash([]);
+  g.fillStyle=C.ink2;g.textAlign="right";g.textBaseline="bottom";g.fillText(`target ${tgt.toFixed(1)} s`,box.r,Y(tgt)-3);
+  // speech bands shading
+  g.fillStyle="rgba(144,133,233,.08)";g.fillRect(X(1)-(box.r-box.l)/n/2,box.t,(box.r-box.l)/n*3,box.b-box.t);
+  g.fillStyle=C.muted;g.textAlign="center";g.textBaseline="bottom";g.fillText("speech bands",X(2),box.b-3);
+  bs.forEach((b,i)=>{const x=X(i);
+    if(b.grade.q==="poor"){g.strokeStyle=C.muted;g.lineWidth=2;g.beginPath();g.moveTo(x-5,box.b-14);g.lineTo(x+5,box.b-4);g.moveTo(x+5,box.b-14);g.lineTo(x-5,box.b-4);g.stroke();return;}
+    const y=Y(b.T20.T);g.lineWidth=2.5;g.strokeStyle=C.teal;g.fillStyle=b.grade.q==="good"?C.teal:C.night;
+    g.beginPath();g.arc(x,y,bandState.hover===i?7:5.5,0,7);g.fill();g.stroke();
+    g.fillStyle=C.ink;g.font="600 11px system-ui,sans-serif";g.textAlign="center";g.textBaseline="bottom";g.fillText(b.T20.T.toFixed(2),x,y-8);g.font="11px system-ui,sans-serif";});
+  const hb=bandState.hover!=null?bs[bandState.hover]:null;
+  $("bandRead").textContent=hb?`${hb.fc<1000?hb.fc+" Hz":hb.fc/1000+" kHz"}: ${hb.grade.q==="poor"?"not measured ("+hb.grade.why+")":`RT60 ${fmtS(hb.T20.T)}, ${hb.dr.toFixed(0)} dB above background, fit r = ${Math.abs(hb.T20.r).toFixed(3)}${hb.grade.why?" ("+hb.grade.why+")":""}`}`:"Tap a band for details.";
+}
+
+/* ================= Room plan ================= */
+function planBox(w,h,pad){const L=S.room.L,W=S.room.W,top=pad+16,sc=Math.min((w-2*pad)/L,(h-top-pad)/W);
+  const pw=L*sc,ph=W*sc,x0=(w-pw)/2,y0=top;return {sc,x0,y0,pw,ph,toPx:(x,y)=>[x0+x*sc,y0+y*sc],toM:(px,py)=>[(px-x0)/sc,(py-y0)/sc]};}
+function drawPlan(cv,big,time){
+  const {g,w,h,hidden}=setup(cv);if(hidden)return null;g.clearRect(0,0,w,h);
+  const P=planBox(w,h,big?14:10);
+  g.fillStyle="rgba(21,33,64,.55)";g.strokeStyle=C.axis;g.lineWidth=1.5;g.beginPath();g.rect(P.x0,P.y0,P.pw,P.ph);g.fill();g.stroke();
+  // 1 m grid
+  g.strokeStyle="rgba(52,68,122,.35)";g.lineWidth=1;g.beginPath();
+  for(let x=1;x<S.room.L;x++){const [px]=P.toPx(x,0);g.moveTo(px,P.y0);g.lineTo(px,P.y0+P.ph);}
+  for(let y=1;y<S.room.W;y++){const [,py]=P.toPx(0,y);g.moveTo(P.x0,py);g.lineTo(P.x0+P.pw,py);}g.stroke();
+  const measured=S.seats.filter(s=>s.claps.length&&isFinite(seatStats(s).c50));
+  // interpolated clarity field between measured seats (inverse-distance weighting)
+  if(big&&measured.length>=3){const step=Math.max(6,P.sc*.25);
+    for(let py=P.y0;py<P.y0+P.ph;py+=step)for(let px=P.x0;px<P.x0+P.pw;px+=step){const [mx,my]=P.toM(px+step/2,py+step/2);let ws=0,vs=0;
+      for(const s of measured){const d2=(s.x-mx)**2+(s.y-my)**2+.05,wt=1/(d2*d2);ws+=wt;vs+=wt*seatStats(s).c50;}
+      g.fillStyle=rgba(c50Rgb(vs/ws),.22);g.fillRect(px,py,Math.min(step,P.x0+P.pw-px),Math.min(step,P.y0+P.ph-py));}}
+  // front / talker
+  const [tx,ty]=P.toPx(S.room.L/2,0);
+  g.fillStyle=C.warn;g.beginPath();g.moveTo(tx-7,ty+1);g.lineTo(tx+7,ty+1);g.lineTo(tx,ty+11);g.closePath();g.fill();
+  g.fillStyle=C.ink2;g.font="12px system-ui,sans-serif";g.textAlign="center";g.textBaseline="bottom";g.fillText("Front: talker claps here",tx,P.y0-4);
+  // seats
+  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for(const s of S.seats){const [px,py]=P.toPx(s.x,s.y),st=seatStats(s),has=st.n&&isFinite(st.c50);
+    if(has){const col=c50Rgb(st.c50),R=(big?1.0:.8)*P.sc*Math.max(.6,Math.min(1.6,st.rt/0.6));
+      const gr=g.createRadialGradient(px,py,0,px,py,R);gr.addColorStop(0,rgba(col,.9));gr.addColorStop(.35,rgba(col,.45));gr.addColorStop(1,rgba(col,0));
+      g.fillStyle=gr;g.beginPath();g.arc(px,py,R,0,7);g.fill();
+      if(big&&!still){// aurora curtain: shimmering vertical streaks above the seat
+        for(let k=0;k<5;k++){const ph=time/900+k*1.7+s.x,xo=(k-2)*R*.22+Math.sin(ph)*R*.08,len=R*(.9+.35*Math.sin(ph*1.3));
+          const lg=g.createLinearGradient(0,py-len,0,py);lg.addColorStop(0,rgba(col,0));lg.addColorStop(1,rgba(col,.35));
+          g.fillStyle=lg;g.fillRect(px+xo-R*.06,py-len,R*.12,len);}}
+      g.fillStyle=C.night;g.strokeStyle=rgba(col,1);g.lineWidth=2;g.beginPath();g.arc(px,py,big?11:9,0,7);g.fill();g.stroke();}
+    else{g.strokeStyle=C.ink2;g.setLineDash([3,3]);g.lineWidth=1.5;g.beginPath();g.arc(px,py,big?11:9,0,7);g.stroke();g.setLineDash([]);}
+    if(s.id===S.sel){g.strokeStyle=C.ink;g.lineWidth=2;g.beginPath();g.arc(px,py,big?16:13,0,7);g.stroke();}
+    g.fillStyle=C.ink;g.font=`700 ${big?12:11}px system-ui,sans-serif`;g.textAlign="center";g.textBaseline="middle";g.fillText(s.id,px,py+.5);
+    if(has&&big){g.font="600 11px system-ui,sans-serif";g.fillStyle=C.ink;g.textBaseline="top";g.fillText(fmtDb(st.c50),px,py+15);}
+  }
+  // scale bar
+  g.fillStyle=C.muted;g.font="11px system-ui,sans-serif";g.textAlign="left";g.textBaseline="top";
+  g.fillText(`${S.room.L} m × ${S.room.W} m`,P.x0,P.y0+P.ph+3>h-12?h-12:P.y0+P.ph+3);
+  return P;
+}
+function drawMini(){drawPlan($("miniMap"),false,0);
+  const s=seatById(S.sel);
+  $("seatLine").innerHTML=s?`Phone at <b>seat ${s.id}</b>, ${s.y.toFixed(1)} m from the front. ${s.claps.length} clap${s.claps.length===1?"":"s"} measured here.`:"No seat chosen yet. Tap the plan.";}
+function planTap(cv,ev){
+  const r=cv.getBoundingClientRect(),P=planBox(r.width,+cv.dataset.h,cv.id==="roomMap"?14:10),[mx,my]=P.toM(ev.clientX-r.left,ev.clientY-r.top);
+  if(mx<0||my<0||mx>S.room.L||my>S.room.W)return;
+  let best=null,bd=1e9;for(const s of S.seats){const d=Math.hypot(s.x-mx,s.y-my);if(d<bd){bd=d;best=s;}}
+  if(best&&bd<.7)S.sel=best.id;
+  else{let i=0,id;do{id=i<26?String.fromCharCode(65+i):"S"+i;i++;}while(seatById(id));
+    S.seats.push({id,x:+mx.toFixed(2),y:+my.toFixed(2),claps:[]});S.sel=id;}
+  save();drawMini();if(S.tab==="room")renderRoom();
+}
+let roomAnim=0;
+function roomLoop(t){if(S.tab!=="room")return;drawPlan($("roomMap"),true,t);roomAnim=requestAnimationFrame(roomLoop);}
+function renderRoom(){
+  const V=roomV(),n=S.seats.filter(s=>s.claps.length).length;
+  $("dimL").value=S.room.L;$("dimW").value=S.room.W;$("dimH").value=S.room.H;$("target").value=S.room.target||"";
+  const auto=ansiTarget(V);
+  $("targetNote").textContent=`Room volume ${V.toFixed(0)} m³. `+(S.room.target?`Using your target of ${S.room.target} s.`:auto?`Automatic target ${auto} s (ANSI/ASA S12.60 for classrooms ${V<283?"under 283 m³":"of 283–566 m³"}).`:"ANSI S12.60 covers classrooms up to 566 m³; using 0.8 s as a guide for larger lecture rooms.");
+  $("interpNote").textContent=n>=3?"The faint shading between seats is estimated from the nearest measured seats. Only the glowing seats were actually measured.":`Measure ${3-n} more seat${3-n===1?"":"s"} to fill in the shading between them.`;
+  $("seatRows").innerHTML=S.seats.map(s=>{const st=seatStats(s),col=isFinite(st.c50)?rgba(c50Rgb(st.c50),1):"transparent";
+    const spreadTxt=isFinite(st.spread)?`${(st.spread*1000).toFixed(0)} ms${st.spread>.1*st.rt?" ⚠":""}`:"--";
+    return `<tr><td><span class="dot" style="background:${col};border:1px solid ${C.ink2}"></span>${s.id}</td><td class="num">${st.n}</td><td class="num">${fmtS(st.rt)}</td><td class="num">${fmtDb(st.c50)}</td><td class="num">${spreadTxt}</td><td class="num"><button class="btn" style="padding:2px 8px;font-size:12px" data-del="${s.id}" aria-label="Delete seat ${s.id}">Delete</button></td></tr>`;}).join("")||`<tr><td colspan="6" style="color:var(--muted)">No seats yet. Tap the plan on the Measure tab.</td></tr>`;
+  cancelAnimationFrame(roomAnim);roomAnim=requestAnimationFrame(roomLoop);
+}
+
+/* ================= Fix ================= */
+function renderFix(){
+  const Tm=roomRT(),Tt=targetRT(),V=roomV(),St=roomS();
+  const {g,w,h,hidden}=setup($("bulletCv"));
+  if(!isFinite(Tm)){$("fixTitle").textContent="Fix the room";$("fixSub").textContent="Measure at least one seat first. The room's RT60 is the median over all measured seats.";$("matCard").style.display="none";$("sanity").innerHTML="";if(!hidden)g.clearRect(0,0,w,h);return;}
+  const ok=Tm<=Tt;
+  $("fixTitle").textContent=ok?"This room already meets the target":`Too echoey by ${(Tm-Tt).toFixed(2)} s`;
+  $("fixSub").textContent=`Room RT60 ${Tm.toFixed(2)} s (median of ${S.seats.filter(s=>s.claps.length).length} seat${S.seats.filter(s=>s.claps.length).length===1?"":"s"}) against a target of ${Tt.toFixed(2)} s.`;
+  if(!hidden){g.clearRect(0,0,w,h);const xmax=Math.max(1.2,Tm*1.25,Tt*1.4),box={l:10,r:w-10,t:34,b:70},X=v=>box.l+v/xmax*(box.r-box.l);
+    // qualitative bands: within target / up to +50% / beyond
+    const bands=[[0,Tt,"rgba(12,163,12,.22)"],[Tt,Tt*1.5,"rgba(250,178,25,.18)"],[Tt*1.5,xmax,"rgba(208,59,59,.18)"]];
+    for(const [a,b,c] of bands){if(a>=xmax)continue;g.fillStyle=c;g.fillRect(X(a),box.t,X(Math.min(b,xmax))-X(a),box.b-box.t);}
+    g.fillStyle=C.ink;g.fillRect(box.l,box.t+12,X(Tm)-box.l,box.b-box.t-24);
+    g.strokeStyle=C.warn;g.lineWidth=3;g.beginPath();g.moveTo(X(Tt),box.t-4);g.lineTo(X(Tt),box.b+4);g.stroke();
+    g.font="600 12px system-ui,sans-serif";g.textBaseline="bottom";g.fillStyle=C.ink2;g.textAlign="center";g.fillText(`target ${Tt.toFixed(2)} s`,Math.max(box.l+40,Math.min(box.r-40,X(Tt))),box.t-6);
+    g.textBaseline="top";g.fillStyle=C.ink;g.textAlign=X(Tm)>box.r-70?"right":"left";g.fillText(`now ${Tm.toFixed(2)} s`,X(Tm)>box.r-70?X(Tm):X(Tm)+4,box.b+6);
+    g.fillStyle=C.muted;g.font="11px system-ui,sans-serif";g.textAlign="left";g.fillText("0 s",box.l,box.b+6);}
+  const fx=sabineFix(V,Tm,Tt),wall=2*(S.room.L+S.room.W)*S.room.H,floor=S.room.L*S.room.W;
+  $("matCard").style.display="";
+  if(ok){$("matSub").textContent="No treatment needed for reverberation. If some seats still show low clarity, they may be too far from the talker: move the talker closer or use a microphone.";$("mats").innerHTML="";}
+  else{$("matSub").textContent=`The room needs about ${fx.dA.toFixed(1)} m² more absorption (Sabine). Any one of these on its own would do it, or combine them:`;
+    $("mats").innerHTML=fx.items.map(m=>{const of=m.key==="carpet"?floor:wall,pct=m.area/of*100;
+      return `<div class="mat"><div class="mi">${MAT_ICON[m.key]}</div><span>${m.name}</span><b>${m.area.toFixed(1)} m²</b><small>${m.note}. Absorbs about ${Math.round(m.alpha*100)}% of the sound that hits it. That is ${pct.toFixed(0)}% of the ${m.key==="carpet"?"floor":"wall area"}${pct>100?", so not enough on its own":""}.</small></div>`;}).join("");}
+  const a=impliedAlpha(V,St,Tm);
+  $("sanity").innerHTML=`<p>Working back from the measured RT60, the room's surfaces absorb on average <b>${(a*100).toFixed(1)}%</b> of the sound that hits them. ${a<.02?"That is unusually low: check the room dimensions.":a>.5?"That is unusually high for Sabine's formula: check the room dimensions, and treat the areas above as rough.":"Typical rooms are between 5% (bare concrete and glass) and 30% (furnished, carpeted). This looks plausible."}</p><p>Volume ${V.toFixed(0)} m³, surface area ${St.toFixed(0)} m². Formula: ΔA = 0.161·V·(1/T<sub>target</sub> − 1/T<sub>now</sub>).</p>`;
+}
+
+/* ================= Misc UI ================= */
+function setChip(id,cls,txt){const c=$(id);c.className="chip "+cls;c.innerHTML="<i></i>"+txt;}
+function switchTab(t){S.tab=t;document.querySelectorAll(".tab").forEach(s=>s.classList.toggle("on",s.id==="tab-"+t));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));window.scrollTo(0,0);
+  if(t==="measure"){drawMini();if(S.last)renderResult();} if(t==="room")renderRoom(); if(t==="fix")renderFix();}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+function hoverable(cv,state,fx,cb){const f=e=>{const r=cv.getBoundingClientRect();state.hover=fx((e.clientX-r.left)/r.width,r.width);cb();};
+  cv.addEventListener("pointermove",f);cv.addEventListener("pointerdown",f);cv.addEventListener("pointerleave",()=>{state.hover=null;cb();});}
+hoverable($("edcCv"),edcState,(p,w)=>Math.max(0,Math.min(1,(p*w-38)/(w-46))),drawEdc);
+hoverable($("bandCv"),bandState,(p,w)=>{const i=Math.floor((p*w-38)/((w-48)/5));return i>=0&&i<5?i:null;},drawBands);
+$("bandBtns").onclick=e=>{const f=e.target.dataset.f;if(!f)return;S.band=+f;document.querySelectorAll("#bandBtns button").forEach(b=>b.classList.toggle("on",+b.dataset.f===S.band));drawEdc();};
+$("miniMap").addEventListener("click",e=>planTap($("miniMap"),e));
+$("roomMap").addEventListener("click",e=>planTap($("roomMap"),e));
+$("listenBtn").onclick=arm;
+$("discardBtn").onclick=()=>{const r=S.last,s=r&&seatById(r.seatId);if(s&&r.ok){s.claps.splice(r.clapNo-1,1);save();}r.ok=false;r.reason="Discarded.";
+  setMsg("Discarded","Clap again when ready.");renderResult();drawMini();};
+$("seatRows").onclick=e=>{const id=e.target.dataset.del;if(!id)return;if(!confirm(`Delete seat ${id} and its claps?`))return;
+  S.seats=S.seats.filter(s=>s.id!==id);if(S.sel===id)S.sel=null;save();renderRoom();drawMini();};
+for(const [id,k] of [["dimL","L"],["dimW","W"],["dimH","H"]])$(id).addEventListener("change",e=>{const v=parseFloat(e.target.value);if(v>=2&&v<=60){S.room[k]=v;
+  for(const s of S.seats){s.x=Math.min(s.x,S.room.L);s.y=Math.min(s.y,S.room.W);}save();}renderRoom();});
+$("target").addEventListener("change",e=>{const v=parseFloat(e.target.value);S.room.target=v>=.2&&v<=3?v:null;save();renderRoom();});
+$("csvBtn").onclick=()=>{
+  const head=["seat","x_m","y_m","clap","time","rt60_s","c50_dB",...BANDS.map(f=>"T20_"+f),...BANDS.map(f=>"C50_"+f),...BANDS.map(f=>"grade_"+f)];
+  const rows=[head.join(",")];
+  for(const s of S.seats)s.claps.forEach((c,i)=>rows.push([s.id,s.x,s.y,i+1,new Date(c.t).toISOString(),c.rt.toFixed(3),isFinite(c.c50)?c.c50.toFixed(2):"",
+    ...c.bands.map(b=>b.T20!=null&&b.q!=="poor"?b.T20.toFixed(3):""),...c.bands.map(b=>isFinite(b.C50)?b.C50.toFixed(2):""),...c.bands.map(b=>b.q)].join(",")));
+  rows.push("",`room_L_m,${S.room.L}`,`room_W_m,${S.room.W}`,`room_H_m,${S.room.H}`,`target_s,${targetRT()}`);
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"}));a.download="echo-aurora.csv";a.click();};
+$("clearBtn").onclick=()=>{if(!confirm("Delete all seats and measurements?"))return;S.seats=[];S.sel=null;S.last=null;save();$("result").style.display="none";drawMini();};
+
+function micHelp(e){
+  const where=`<br><small>(${e.name||"Error"}, ${location.protocol}//${location.host||"local file"})</small>`;
+  if(location.protocol==="file:"||location.protocol==="content:")return "This page was opened as a local file, and browsers won't give a local file the microphone. Open the https:// link instead."+where;
+  if(window.top!==window)return "This page is shown inside another page, which blocks the microphone. Open the app's own https:// link directly."+where;
+  if(/wv|FBAN|FBAV|Instagram|Line\//.test(navigator.userAgent))return "You're in an in-app browser (WhatsApp, Gmail, etc.). Use the ⋮ menu → <b>Open in Chrome</b>."+where;
+  if(e.name==="NotAllowedError")return "The microphone is blocked for this site. Tap the icon left of the address bar → Permissions → Microphone → Allow, then reload."+where;
+  if(e.name==="NotReadableError")return "Another app is using the microphone (a call, recorder or voice assistant). Close it and try again."+where;
+  if(e.name==="NotFoundError")return "No microphone was found on this device."+where;
+  return "Microphone unavailable: "+e.message+where;
+}
+async function start(){
+  $("err").textContent="";
+  if(!window.isSecureContext){$("err").textContent="Sensors need a secure page. Open this app over https:// (e.g. GitHub Pages) or on localhost.";return;}
+  try{
+    if(typeof DeviceMotionEvent!=="undefined"&&DeviceMotionEvent.requestPermission){try{await DeviceMotionEvent.requestPermission();}catch(e){}}
+    window.addEventListener("devicemotion",onMotion);
+    await startAudio();
+  }catch(e){$("err").innerHTML=micHelp(e);return;}
+  $("startOverlay").style.display="none";
+  try{if(navigator.wakeLock)await navigator.wakeLock.request("screen");}catch(e){}
+  drawMini();
+  // the sky advances every third frame (~6 s across), so a clap stays in view while its result appears
+  let fr=0;const loop=()=>{if(S.tab==="measure"&&++fr%3===0)drawSky();requestAnimationFrame(loop);};requestAnimationFrame(loop);
+  setInterval(()=>{const el=$("diagLine"),D=S.diag;el.style.display=S.state==="armed"&&D?"":"none";if(!D||S.state!=="armed")return;
+    el.textContent=D.blocks===0?"No sound is reaching the app from the microphone.":
+      `Background ${D.floor.toFixed(0)} dBFS. Loudest sound in the last 3 s: ${D.bestPk.toFixed(0)} dBFS, ${D.bestRise.toFixed(0)} dB above background (peak) and ${D.bestRms.toFixed(0)} dB (average). A clap needs 30, 20 and at least −45 dBFS.`;},250);
+  setInterval(()=>{const s=stillNow();setChip("chipStill",s==null?"wait":s?"ok":"bad",s==null?"No motion sensor":s?"Still":"Moving");},500);
+}
+$("startBtn").onclick=start;
+
+document.querySelectorAll("canvas[height]").forEach(c=>c.dataset.h=c.getAttribute("height"));
+readColors();load();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.ctx)S.ctx.resume();});
+window.addEventListener("resize",()=>{skyRows=null;if(S.tab==="measure"){drawMini();if(S.last)renderResult();}});
+</script>
+</body>
+</html>
